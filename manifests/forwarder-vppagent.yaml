@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+  name: forwarder-vppagent
+  namespace: nsm-system
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: forwarder-vppagent
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: forwarder-vppagent
+    spec:
+      containers:
+      - env:
+        - name: INSECURE
+          value: "false"
+        - name: METRICS_COLLECTOR_ENABLED
+          value: "false"
+        - name: TRACER_ENABLED
+          value: "false"
+        - name: JAEGER_AGENT_HOST
+          value: jaeger.nsm-system
+        - name: JAEGER_AGENT_PORT
+          value: "6831"
+        - name: NSM_FORWARDER_SRC_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vppagent:latest
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /liveness
+            port: 5555
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 3
+        name: forwarder-vppagent
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readiness
+            port: 5555
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 3
+        resources: {}
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/networkservicemesh/
+          mountPropagation: Bidirectional
+          name: workspace
+        - mountPath: /run/spire/sockets
+          name: spire-agent-socket
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      hostPID: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /var/lib/networkservicemesh
+          type: DirectoryOrCreate
+        name: workspace
+      - hostPath:
+          path: /run/spire/sockets
+          type: DirectoryOrCreate
+        name: spire-agent-socket
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
