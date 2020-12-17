@@ -4,33 +4,37 @@ kind: Namespace
 metadata:
   name: spire
 ---
-# Source: nsm/charts/spire/templates/agent-account.tpl
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: spire-agent
   namespace: spire
 ---
-# Source: nsm/charts/spire/templates/server-account.tpl
-apiVersion: v1
-kind: ServiceAccount
+# Required cluster role to allow spire-agent to query k8s API server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spire-server
-  namespace: spire
+  name: spire-agent-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes", "nodes/proxy"]
+  verbs: ["get"]
+
 ---
-# Source: nsm/charts/spire/templates/spire-secret.tpl
-apiVersion: v1
-kind: Secret
+# Binds above cluster role to spire-agent service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spire-secret
+  name: spire-agent-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-agent
   namespace: spire
-type: Opaque
-data:
-  bootstrap.key: |-
-    
-  bootstrap.crt: |-
+roleRef:
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+  apiGroup: rbac.authorization.k8s.io
 ---
-# Source: nsm/charts/spire/templates/agent-configmap.tpl
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -45,233 +49,37 @@ data:
       server_port = "8081"
       socket_path = "/run/spire/sockets/agent.sock"
       trust_bundle_path = "/run/spire/bundle/bundle.crt"
-      trust_domain = "test.com"
+      trust_domain = "example.org"
     }
+
     plugins {
       NodeAttestor "k8s_sat" {
         plugin_data {
           # NOTE: Change this to your cluster name
-          cluster = "kubernetes"
+          cluster = "nsm-cluster"
         }
       }
+
       KeyManager "memory" {
         plugin_data {
         }
       }
+
       WorkloadAttestor "k8s" {
         plugin_data {
+          # Defaults to the secure kubelet port by default.
+          # Minikube does not have a cert in the cluster CA bundle that
+          # can authenticate the kubelet cert, so skip validation.
           skip_kubelet_verification = true
         }
       }
-    }
----
-# Source: nsm/charts/spire/templates/registration-configmap.tpl
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: spire-entries
-  namespace: spire
-data:
-  registration.json: |-
-    {
-      "entries": [
-        {
-          "selectors": [
-            {
-              "type": "k8s_sat",
-              "value": "agent_sa:spire-agent"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/spire-agent",
-          "parent_id": "spiffe://test.com/spire/server"
-        },
-        {
-          "selectors": [
-            {
-              "type": "k8s",
-              "value": "sa:nsmgr-acc"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/nsmgr",
-          "parent_id": "spiffe://test.com/spire-agent"
-        },
-        {
-          "selectors": [
-            {
-              "type": "k8s",
-              "value": "sa:nse-acc"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/nse",
-          "parent_id": "spiffe://test.com/spire-agent"
-        },
-        {
-          "selectors": [
-            {
-              "type": "k8s",
-              "value": "sa:nsc-acc"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/nsc",
-          "parent_id": "spiffe://test.com/spire-agent"
-        },
-        {
-          "selectors": [
-            {
-              "type": "k8s",
-              "value": "sa:forward-plane-acc"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/forward-plane",
-          "parent_id": "spiffe://test.com/spire-agent"
-        },
-        {
-          "selectors": [
-            {
-              "type": "k8s",
-              "value": "sa:nsmrs-acc"
-            }
-          ],
-          "spiffe_id": "spiffe://test.com/nsmrs",
-          "parent_id": "spiffe://test.com/spire-agent"
-        }
-      ]
-    }
----
-# Source: nsm/charts/spire/templates/server-configmap.tpl
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: spire-bundle
-  namespace: spire
----
-# Source: nsm/charts/spire/templates/server-configmap.tpl
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: spire-server
-  namespace: spire
-data:
-  server.conf: |
-    server {
-      bind_address = "0.0.0.0"
-      bind_port = "8081"
-      trust_domain = "test.com"
-      data_dir = "/run/spire/data"
-      log_level = "DEBUG"
-      default_svid_ttl = "1h"
-      registration_uds_path = "/run/spire/sockets/registration.sock"
-      ca_subject = {
-        country = ["US"],
-        organization = ["SPIFFE"],
-        common_name = "",
-      }
-    }
-    plugins {
-      DataStore "sql" {
-        plugin_data {
-          database_type = "sqlite3"
-          connection_string = "/run/spire/data/datastore.sqlite3"
-        }
-      }
-      NodeAttestor "k8s_sat" {
-        plugin_data {
-          clusters = {
-            # NOTE: Change this to your cluster name
-            "kubernetes" = {
-              use_token_review_api_validation = true
-              service_account_whitelist = ["spire:spire-agent"]
-            }
+
+      WorkloadAttestor "unix" {
+          plugin_data {
           }
-        }
-      }
-      NodeResolver "noop" {
-        plugin_data {}
-      }
-      KeyManager "disk" {
-        plugin_data {
-          keys_path = "/run/spire/data/keys.json"
-        }
-      }
-      Notifier "k8sbundle" {
-        plugin_data {
-          # This plugin updates the bundle.crt value in the spire:spire-bundle
-          # ConfigMap by default, so no additional configuration is necessary.
-        }
       }
     }
 ---
-# Source: nsm/charts/spire/templates/spire-roles.tpl
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: spire-agent-role
-rules:
-  - apiGroups: [""]
-    resources: ["nodes/proxy"]
-    verbs: ["get", "watch", "list", "create"]
----
-# Source: nsm/charts/spire/templates/spire-roles.tpl
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: spire-server-role
-rules:
-  - apiGroups: ["authentication.k8s.io"]
-    resources: ["tokenreviews"]
-    verbs: ["get", "watch", "list", "create"]
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    resourceNames: ["spire-bundle"]
-    verbs: ["get", "patch"]
----
-# Source: nsm/charts/spire/templates/spire-roles.tpl
-apiVersion: rbac.authorization.k8s.io/v1
-# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
-kind: ClusterRoleBinding
-metadata:
-  name: spire-agent-binding
-subjects:
-  - kind: ServiceAccount
-    name: spire-agent
-    namespace: spire
-roleRef:
-  kind: ClusterRole
-  name: spire-agent-role
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: nsm/charts/spire/templates/spire-roles.tpl
-apiVersion: rbac.authorization.k8s.io/v1
-# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
-kind: ClusterRoleBinding
-metadata:
-  name: spire-server-binding
-subjects:
-  - kind: ServiceAccount
-    name: spire-server
-    namespace: spire
-roleRef:
-  kind: ClusterRole
-  name: spire-server-role
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: nsm/charts/spire/templates/server-service.tpl
-apiVersion: v1
-kind: Service
-metadata:
-  name: spire-server
-  namespace: spire
-spec:
-  type: NodePort
-  ports:
-    - name: grpc
-      port: 8081
-      targetPort: 8081
-      protocol: TCP
-  selector:
-    app: spire-server
----
-# Source: nsm/charts/spire/templates/agent-daemonset.tpl
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -292,7 +100,7 @@ spec:
       hostPID: true
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      serviceAccountName: "spire-agent"
+      serviceAccountName: spire-agent
       initContainers:
         - name: init
           # This is a small image with wait-for-it, choose whatever image
@@ -302,24 +110,24 @@ spec:
           args: ["-t", "30", "spire-server:8081"]
       containers:
         - name: spire-agent
-          image: gcr.io/spiffe-io/spire-agent:0.11.0
+          image: gcr.io/spiffe-io/spire-agent:0.10.0
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
               readOnly: true
+            - name: spire-bundle
+              mountPath: /run/spire/bundle
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: false
-            - name: spire-bundle
-              mountPath: /run/spire/bundle
-              readOnly: true
           livenessProbe:
             exec:
               command:
-                - /bin/sh
-                - -c
-                - "/opt/spire/bin/spire-agent api fetch -socketPath /run/spire/sockets/agent.sock 2>&1 | grep -vqE 'connection refused|no such file or directory'"
+                - /opt/spire/bin/spire-agent
+                - healthcheck
+                - -socketPath
+                - /run/spire/sockets/agent.sock
             failureThreshold: 2
             initialDelaySeconds: 15
             periodSeconds: 60
@@ -336,7 +144,117 @@ spec:
             path: /run/spire/sockets
             type: DirectoryOrCreate
 ---
-# Source: nsm/charts/spire/templates/server-statefulset.tpl
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server
+  namespace: spire
+---
+# ClusterRole to allow spire-server node attestor to query Token Review API
+# and to be able to push certificate bundles to a configmap
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-trust-role
+rules:
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["patch", "get", "list"]
+
+---
+# Binds above cluster role to spire-server service account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-trust-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: ClusterRole
+  name: spire-server-trust-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server
+  namespace: spire
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      registration_uds_path = "/tmp/spire-registration.sock"
+      trust_domain = "example.org"
+      data_dir = "/run/spire/data"
+      log_level = "DEBUG"
+      #AWS requires the use of RSA.  EC cryptography is not supported
+      ca_key_type = "rsa-2048"
+
+      default_svid_ttl = "1h"
+      ca_subject = {
+        country = ["US"],
+        organization = ["SPIFFE"],
+        common_name = "",
+      }
+    }
+
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/run/spire/data/datastore.sqlite3"
+        }
+      }
+
+      NodeAttestor "k8s_sat" {
+        plugin_data {
+          clusters = {
+            # NOTE: Change this to your cluster name
+            "nsm-cluster" = {
+              use_token_review_api_validation = true
+              service_account_whitelist = ["spire:spire-agent"]
+            }
+          }
+        }
+      }
+
+      NodeResolver "noop" {
+        plugin_data {}
+      }
+
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/run/spire/data/keys.json"
+        }
+      }
+
+      Notifier "k8sbundle" {
+        plugin_data {
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  type: NodePort
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app: spire-server
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -357,65 +275,44 @@ spec:
         app: spire-server
     spec:
       serviceAccountName: spire-server
-      shareProcessNamespace: true
       containers:
-        - name: nsm-spire
-          securityContext:
-            privileged: true
-          image: docker.io/networkservicemesh/nsm-spire:master
-          volumeMounts:
-            - name: spire-server-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
-            - name: spire-entries
-              mountPath: /run/spire/entries
-              readOnly: true
-
         - name: spire-server
-          image: gcr.io/spiffe-io/spire-server:0.11.0
+          image: gcr.io/spiffe-io/spire-server:0.10.0
           args:
             - -config
             - /run/spire/config/server.conf
           ports:
             - containerPort: 8081
           volumeMounts:
-            - name: spire-server-socket
-              mountPath: /run/spire/sockets
-              readOnly: false
             - name: spire-config
               mountPath: /run/spire/config
               readOnly: true
             - name: spire-data
               mountPath: /run/spire/data
               readOnly: false
-            - name: spire-secret
-              mountPath: /run/spire/secret
           livenessProbe:
-            tcpSocket:
-              port: 8081
+            exec:
+              command:
+                - /opt/spire/bin/spire-server
+                - healthcheck
             failureThreshold: 2
             initialDelaySeconds: 15
             periodSeconds: 60
             timeoutSeconds: 3
       volumes:
-        - name: spire-server-socket
-          hostPath:
-            path: /run/spire/server-sockets
-            type: DirectoryOrCreate
         - name: spire-config
           configMap:
             name: spire-server
-        - name: spire-secret
-          secret:
-            secretName: spire-secret
-        - name: spire-entries
-          configMap:
-            name: spire-entries
         - name: spire-data
           hostPath:
-            path: /var/spire-data
+            path: /run/spire/data
             type: DirectoryOrCreate
-
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-bundle
+  namespace: spire
 ---
 apiVersion: v1
 kind: Namespace

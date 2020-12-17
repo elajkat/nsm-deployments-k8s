@@ -1,4 +1,4 @@
 #! /bin/sh
 
-cat spire.yaml namespace.yaml nsmgr.yaml \
+cat spire.yaml ../nsm/namespace.yaml nsmgr.yaml \
 	> nsm.yaml
