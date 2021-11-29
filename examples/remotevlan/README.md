@@ -43,6 +43,12 @@ Apply NSM resources for basic tests:
 kubectl apply -k .
 ```
 
+Wait for applications ready:
+
+```bash
+kubectl -n nsm-system wait --for=condition=ready --timeout=2m pod -l app=nse-remote-vlan
+```
+
 ## Cleanup
 
 To free resources follow the next command:

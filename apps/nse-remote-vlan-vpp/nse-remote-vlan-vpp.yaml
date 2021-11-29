@@ -1,18 +1,18 @@
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: nse
+  name: nse-remote-vlan
   labels:
-    app: nse
+    app: nse-remote-vlan
 spec:
   selector:
     matchLabels:
-      app: nse
+      app: nse-remote-vlan
   template:
     metadata:
       labels:
-        app: nse
+        app: nse-remote-vlan
         "spiffe.io/spiffe-id": "true"
     spec:
       containers:
