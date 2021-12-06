@@ -88,10 +88,27 @@ NSCS=($(kubectl get pods -l app=nsc-kernel -n ${NAMESPACE} --template '{{range .
 Ping from NSC address from each NSC:
 
 ```bash
-kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 4 172.10.0.1
-kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 4 172.10.0.1
-kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 4 172.10.0.2
-kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 4 172.10.0.2
+kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 1 172.10.0.1
+kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 1 172.10.0.1
+kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 1 172.10.0.2
+kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 1 172.10.0.2
+```
+
+Setup a docker container outside of kind cluster:
+
+```bash
+docker run --cap-add=NET_ADMIN -d --network bridge-2 --name external-cont alpine tail -f /dev/null
+docker exec external-cont ip link set eth0 down
+docker exec external-cont ip link add link eth0 name eth0.100 type vlan id 100
+docker exec external-cont ip link set eth0 up
+docker exec external-cont ip addr add 172.10.0.5/24 dev eth0.100
+```
+
+Ping the NSC addresses from outside the cluster:
+
+```bash
+docker exec external-cont ping -c 1 172.10.0.1
+docker exec external-cont ping -c 1 172.10.0.1
 ```
 
 ## Cleanup
@@ -101,3 +118,8 @@ Delete ns:
 ```bash
 kubectl delete ns ${NAMESPACE}
 ```
+
+Delete the external container:
+
+docker stop external-cont
+docker rm external-cont
