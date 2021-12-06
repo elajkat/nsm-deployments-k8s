@@ -121,5 +121,7 @@ kubectl delete ns ${NAMESPACE}
 
 Delete the external container:
 
+```bash
 docker stop external-cont
 docker rm external-cont
+```
