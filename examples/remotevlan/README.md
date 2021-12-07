@@ -66,4 +66,5 @@ docker network disconnect bridge-2 kind-worker2
 docker network rm bridge-2
 docker exec kind-worker ip link del eth1
 docker exec kind-worker2 ip link del eth1
+true
 ```

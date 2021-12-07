@@ -60,6 +60,10 @@ spec:
                 - nsc-kernel
             topologyKey: "kubernetes.io/hostname"
       containers:
+        - name: rvm-tester
+          image: registry.nordix.org/cloud-native/nsm/rvm-tester:latest
+          imagePullPolicy: IfNotPresent
+          command: ["tail", "-f", "/dev/null"]
         - name: nsc
           env:
             - name: NSM_NETWORK_SERVICES
@@ -85,43 +89,47 @@ Get NSC pod:
 NSCS=($(kubectl get pods -l app=nsc-kernel -n ${NAMESPACE} --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'))
 ```
 
-Ping from NSC address from each NSC:
+Start an iperf server in NSC:
 
 ```bash
-kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 1 172.10.0.1
-kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 1 172.10.0.1
-kubectl exec ${NSCS[0]} -n ${NAMESPACE} -- ping -c 1 172.10.0.2
-kubectl exec ${NSCS[1]} -n ${NAMESPACE} -- ping -c 1 172.10.0.2
+IS_FIRST=$(kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
+if [ -n "$IS_FIRST" ]; then
+  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
+else
+  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
+fi
 ```
 
-Setup a docker container outside of kind cluster:
+Setup a docker container for traffic test:
 
 ```bash
-docker run --cap-add=NET_ADMIN -d --network bridge-2 --name external-cont alpine tail -f /dev/null
-docker exec external-cont ip link set eth0 down
-docker exec external-cont ip link add link eth0 name eth0.100 type vlan id 100
-docker exec external-cont ip link set eth0 up
-docker exec external-cont ip addr add 172.10.0.5/24 dev eth0.100
+docker run --cap-add=NET_ADMIN --rm -d --network bridge-2 --name rvm-tester registry.nordix.org/cloud-native/nsm/rvm-tester:latest tail -f /dev/null
+docker exec rvm-tester ip link set eth0 down
+docker exec rvm-tester ip link add link eth0 name eth0.100 type vlan id 100
+docker exec rvm-tester ip link set eth0 up
+docker exec rvm-tester ip addr add 172.10.0.254/24 dev eth0.100
 ```
 
-Ping the NSC addresses from outside the cluster:
+Start the client from tester container:
 
 ```bash
-docker exec external-cont ping -c 1 172.10.0.1
-docker exec external-cont ping -c 1 172.10.0.1
+docker exec rvm-tester ping -c 1 172.10.0.1
 ```
 
 ## Cleanup
 
-Delete ns:
+Delete the tester container and image:
+
+```bash
+docker stop rvm-tester
+docker image rm registry.nordix.org/cloud-native/nsm/rvm-tester:latest
+true
+```
+
+Delete the test namespace:
 
 ```bash
 kubectl delete ns ${NAMESPACE}
-```
-
-Delete the external container:
-
-```bash
-docker stop external-cont
-docker rm external-cont
 ```
