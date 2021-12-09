@@ -43,10 +43,17 @@ Apply NSM resources for basic tests:
 kubectl apply -k .
 ```
 
-Wait for applications ready:
+Wait for NSE application:
 
 ```bash
 kubectl -n nsm-system wait --for=condition=ready --timeout=2m pod -l app=nse-remote-vlan
+```
+
+Wait for admission-webhook-k8s:
+
+```bash
+WH=$(kubectl get pods -l app=admission-webhook-k8s -n nsm-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+kubectl wait --for=condition=ready --timeout=1m pod ${WH} -n nsm-system
 ```
 
 ## Cleanup

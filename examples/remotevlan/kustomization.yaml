@@ -5,12 +5,15 @@ kind: Kustomization
 namespace: nsm-system
 
 bases:
-  - ../../apps/nsmgr
-  - ../../apps/registry-k8s
-  - ../../apps/forwarder-vpp
-  - ./device-selector.yaml
-  - ../../apps/nse-remote-vlan-vpp
+- ../../apps/nsmgr
+- ../../apps/registry-k8s
+- ../../apps/forwarder-vpp
+- ../../apps/nse-remote-vlan-vpp
+- ../../apps/admission-webhook-k8s
+
+resources:
+  - device-selector.yaml
 
 patchesStrategicMerge:
-  - forwarder-vpp.yaml
+  - patch-forwarder-vpp.yaml
  

@@ -10,6 +10,7 @@ Make sure that you have completed steps from [remotevlan](../../remotevlan) setu
 
 ## Run
 
+<!-- TODO: Add step numbers -->
 Create test namespace:
 
 ```bash
@@ -17,37 +18,29 @@ NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicem
 NAMESPACE=${NAMESPACE:10}
 ```
 
-Create customization file:
+Create first iperf server deployment:
+<!-- TODO: Change rvm-tester image to networkstatic/iperf3 -->
 
 ```bash
-cat > kustomization.yaml <<EOF
----
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: ${NAMESPACE}
-
-bases:
-- ../../../apps/nsc-kernel
-
-
-patchesStrategicMerge:
-- patch-nsc.yaml
-EOF
-```
-
-Create NSC patch:
-
-```bash
-cat > patch-nsc.yaml <<EOF
+cat > first-iperf-s.yaml <<EOF
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nsc-kernel
+  name: iperf1-s
+  labels:
+    app: iperf1-s
 spec:
   replicas: 2
+  selector:
+    matchLabels:
+      app: iperf1-s
   template:
+    metadata:
+      labels:
+        app: iperf1-s
+      annotations:
+        networkservicemesh.io: kernel://finance-bridge/nsm-1
     spec:
       affinity:
         podAntiAffinity:
@@ -57,21 +50,34 @@ spec:
               - key: app
                 operator: In
                 values:
-                - nsc-kernel
+                - iperf1-s
             topologyKey: "kubernetes.io/hostname"
       containers:
-        - name: rvm-tester
-          image: registry.nordix.org/cloud-native/nsm/rvm-tester:latest
-          imagePullPolicy: IfNotPresent
-          command: ["tail", "-f", "/dev/null"]
-        - name: nsc
-          env:
-            - name: NSM_NETWORK_SERVICES
-              value: kernel://finance-bridge/nsm-1
+      - name: rvm-tester
+        image: registry.nordix.org/cloud-native/nsm/rvm-tester:latest
+        imagePullPolicy: IfNotPresent
+        command: ["tail", "-f", "/dev/null"]
 EOF
 ```
 
-Deploy NSC:
+<!-- TODO: Create second iperf server to connect to second network service -->
+Create kustomization file:
+
+```bash
+cat > kustomization.yaml <<EOF
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ${NAMESPACE}
+
+resources:
+- first-iperf-s.yaml
+
+EOF
+```
+
+Deploy the iperf-NSCs:
 
 ```bash
 kubectl apply -k .
@@ -80,13 +86,13 @@ kubectl apply -k .
 Wait for applications ready:
 
 ```bash
-kubectl -n ${NAMESPACE} wait --for=condition=ready --timeout=1m pod -l app=nsc-kernel
+kubectl -n ${NAMESPACE} wait --for=condition=ready --timeout=1m pod -l app=iperf1-s
 ```
 
-Get NSC pod:
+Get the iperf-NSC pods:
 
 ```bash
-NSCS=($(kubectl get pods -l app=nsc-kernel -n ${NAMESPACE} --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'))
+NSCS=($(kubectl get pods -l app=iperf1-s -n ${NAMESPACE} --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'))
 ```
 
 Start an iperf server in NSC:
@@ -102,6 +108,7 @@ else
 fi
 ```
 
+<!-- TODO: start iperf client from this image-->
 Setup a docker container for traffic test:
 
 ```bash
