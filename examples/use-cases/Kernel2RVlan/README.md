@@ -10,7 +10,6 @@ Make sure that you have completed steps from [remotevlan](../../remotevlan) setu
 
 ## Run
 
-<!-- TODO: Add step numbers -->
 Create test namespace:
 
 ```bash
@@ -19,7 +18,6 @@ NAMESPACE=${NAMESPACE:10}
 ```
 
 Create first iperf server deployment:
-<!-- TODO: Change rvm-tester image to networkstatic/iperf3 -->
 
 ```bash
 cat > first-iperf-s.yaml <<EOF
@@ -53,14 +51,13 @@ spec:
                 - iperf1-s
             topologyKey: "kubernetes.io/hostname"
       containers:
-      - name: rvm-tester
-        image: registry.nordix.org/cloud-native/nsm/rvm-tester:latest
+      - name: iperf-server
+        image: networkstatic/iperf3:latest
         imagePullPolicy: IfNotPresent
         command: ["tail", "-f", "/dev/null"]
 EOF
 ```
 
-<!-- TODO: Create second iperf server to connect to second network service -->
 Create kustomization file:
 
 ```bash
@@ -98,21 +95,35 @@ NSCS=($(kubectl get pods -l app=iperf1-s -n ${NAMESPACE} --template '{{range .it
 Start an iperf server in NSC:
 
 ```bash
-IS_FIRST=$(kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
+IS_FIRST=$(kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
 if [ -n "$IS_FIRST" ]; then
-  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
+  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
 else
-  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
+  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
 fi
 ```
 
-<!-- TODO: start iperf client from this image-->
+Create a docker image for test external connections:
+
+```bash
+cat > Dockerfile <<EOF
+FROM networkstatic/iperf3
+
+RUN apt-get update \
+    && apt-get install -y ethtool tcpdump ncat telnet procps psmisc\
+    && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT [ "tail", "-f", "/dev/null" ]
+EOF
+docker build . -t rvm-tester
+```
+
 Setup a docker container for traffic test:
 
 ```bash
-docker run --cap-add=NET_ADMIN --rm -d --network bridge-2 --name rvm-tester registry.nordix.org/cloud-native/nsm/rvm-tester:latest tail -f /dev/null
+docker run --cap-add=NET_ADMIN --rm -d --network bridge-2 --name rvm-tester rvm-tester tail -f /dev/null
 docker exec rvm-tester ip link set eth0 down
 docker exec rvm-tester ip link add link eth0 name eth0.100 type vlan id 100
 docker exec rvm-tester ip link set eth0 up
@@ -129,11 +140,11 @@ docker exec rvm-tester ping -c 1 172.10.0.1
 Start iperf client on tester:
 
 ```bash
-IS_FIRST=$(kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
+IS_FIRST=$(kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
 if [ -n "$IS_FIRST" ]; then
-  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
 else
-  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
 fi
 docker exec rvm-tester iperf3 -i0 t 5 -c 172.10.0.1
 ```
@@ -142,7 +153,7 @@ Start iperf server on tester:
 
 ```bash
 docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
-kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
+kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
 ```
 
 ## Cleanup
@@ -151,7 +162,7 @@ Delete the tester container and image:
 
 ```bash
 docker stop rvm-tester
-docker image rm registry.nordix.org/cloud-native/nsm/rvm-tester:latest
+docker image rm rvm-tester:latest
 true
 ```
 

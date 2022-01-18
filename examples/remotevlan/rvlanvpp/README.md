@@ -1,4 +1,4 @@
-# NSM Remote Vlan VPP Examples
+# NSM Remote Vlan VPP Forwarder
 
 ## Requires
 
@@ -10,8 +10,8 @@
 
 ## Run
 
-1. Deploy the forwarder:
+Deploy the forwarder:
 
-    ```bash
-    kubectl apply -k .
-    ```
+```bash
+kubectl apply -k .
+```
