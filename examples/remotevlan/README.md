@@ -6,7 +6,7 @@
 
 ## Includes
 
-- [Kernel2RVlan](../use-cases/Kernel2RVlan)
+- [Remote VLAN mechanism using forwarder-vpp](./rvlanvpp)
 
 ## Run
 

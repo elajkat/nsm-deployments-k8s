@@ -117,12 +117,32 @@ docker exec rvm-tester ip link set eth0 down
 docker exec rvm-tester ip link add link eth0 name eth0.100 type vlan id 100
 docker exec rvm-tester ip link set eth0 up
 docker exec rvm-tester ip addr add 172.10.0.254/24 dev eth0.100
+docker exec rvm-tester ethtool -K eth0 tx off
 ```
 
 Start the client from tester container:
 
 ```bash
 docker exec rvm-tester ping -c 1 172.10.0.1
+```
+
+Start iperf client on tester:
+
+```bash
+IS_FIRST=$(kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
+if [ -n "$IS_FIRST" ]; then
+  kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+else
+  kubectl exec ${NSCS[1]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
+fi
+docker exec rvm-tester iperf3 -i0 t 5 -c 172.10.0.1
+```
+
+Start iperf server on tester:
+
+```bash
+docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
+kubectl exec ${NSCS[0]} -c rvm-tester -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
 ```
 
 ## Cleanup
