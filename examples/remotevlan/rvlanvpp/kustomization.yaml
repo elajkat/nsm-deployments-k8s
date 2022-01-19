@@ -12,4 +12,3 @@ resources:
 
 patchesStrategicMerge:
   - patch-forwarder-vpp.yaml
- 

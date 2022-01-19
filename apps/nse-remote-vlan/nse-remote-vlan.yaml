@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nse
-          image: registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
+          image: ghcr.io/networkservicemesh/ci/cmd-nse-remote-vlan:c65eba3
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5003

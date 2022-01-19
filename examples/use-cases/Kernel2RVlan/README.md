@@ -13,7 +13,7 @@ Make sure that you have completed steps from [remotevlan](../../remotevlan) setu
 Create test namespace:
 
 ```bash
-NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/7113942326f9001fa67b7a9effdf38d4eba2dbdd/examples/use-cases/namespace.yaml)[0])
+NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/7dde61822c0256ccb4aef4e4c33d4fb9341a0296/examples/use-cases/namespace.yaml)[0])
 NAMESPACE=${NAMESPACE:10}
 ```
 
@@ -112,7 +112,7 @@ cat > Dockerfile <<EOF
 FROM networkstatic/iperf3
 
 RUN apt-get update \
-    && apt-get install -y ethtool tcpdump ncat telnet procps psmisc\
+    && apt-get install -y ethtool tcpdump \
     && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT [ "tail", "-f", "/dev/null" ]

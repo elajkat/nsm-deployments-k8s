@@ -1,6 +1,6 @@
 # NSM Remote Vlan VPP Forwarder
 
-Contains setup for `forwarder-vpp` and device configuration file for remote vlan mechanism.
+Contains setup for `forwarder-vpp` and a config map that creates the device selector file in forwarder pod for remote vlan mechanism.
 
 ## Requires
 
