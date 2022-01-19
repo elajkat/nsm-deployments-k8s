@@ -1,8 +1,8 @@
 # Test kernel to remote vlan connection
 
-This example shows that NSC can establish a remote vlan connection.
-NSCs are using the `kernel` mechanism to connect to its local forwarder.
-Forwarders are using the `vlan` remote mechanism.
+This example shows that NSCs can connect to a cluster external entity by a VLAN interface.
+NSCs are using the `kernel` mechanism to connect to local forwarder.
+Forwarders are using the `vlan` remote mechanism to set up the VLAN interface.
 
 ## Requires
 

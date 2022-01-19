@@ -1,5 +1,7 @@
 # NSM Remote Vlan Examples
 
+This setup can be used to check remote vlan mechanism. Contain basic setup for NSM that includes `nsmgr`, `registry-k8s`, `admission-webhook-k8s`, `nse-remote-vlan`. The `nse-remote-vlan` belongs to the nsm-system since does not have role in data-plane connection.
+
 ## Requires
 
 - [spire](../spire)

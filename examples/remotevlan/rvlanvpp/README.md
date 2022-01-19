@@ -1,8 +1,10 @@
 # NSM Remote Vlan VPP Forwarder
 
+Contains setup for `forwarder-vpp` and device configuration file for remote vlan mechanism.
+
 ## Requires
 
-- [remotevlan](../../remotevlan)
+Make sure that you have completed steps from [remotevlan](../../remotevlan) setup.
 
 ## Includes
 
