@@ -7,8 +7,9 @@ namespace: nsm-system
 bases:
 - ../../../apps/forwarder-vpp
 
-resources:
-  - device-selector.yaml
-
+configMapGenerator:
+  - name: device-selector
+    files:
+      - selector
 patchesStrategicMerge:
   - patch-forwarder-vpp.yaml
