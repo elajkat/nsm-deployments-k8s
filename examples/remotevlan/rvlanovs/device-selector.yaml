@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: device-selector
+  namespace: nsm-system
+data:
+  selector: "---\ninterfaces:\n  - name: eth1\n    bridge: br0\n    matches:\n       - labelSelector:\n           - via: gw1\n"
