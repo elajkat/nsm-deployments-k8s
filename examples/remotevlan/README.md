@@ -1,6 +1,6 @@
 # NSM Remote Vlan Examples
 
-This setup can be used to check remote vlan mechanism. Contain basic setup for NSM that includes `nsmgr`, `registry-k8s`, `admission-webhook-k8s`, `nse-remote-vlan`. The `nse-remote-vlan` belongs to the nsm-system since does not have role in data-plane connection.
+This setup can be used to check remote vlan mechanism with both OVS and VPP forwarder. Contain basic setup for NSM that includes `nsmgr`, `registry-k8s`, `admission-webhook-k8s`, `nse-remote-vlan`. The `nse-remote-vlan` belongs to the nsm-system since does not have role in data-plane connection.
 
 ## Requires
 
@@ -8,6 +8,7 @@ This setup can be used to check remote vlan mechanism. Contain basic setup for N
 
 ## Includes
 
+- [Remote VLAN mechanism using forwarder-ovs](./rvlanovs)
 - [Remote VLAN mechanism using forwarder-vpp](./rvlanvpp)
 
 ## Run
