@@ -32,7 +32,7 @@ spec:
             - name: NSM_CONNECT_TO
               value: "registry:5002"
             - name: NSM_SERVICES
-              value: "finance-bridge { vlan: 100; via: gw1}"
+              value: "finance-bridge { vlan: 100; via: gw1}, private-bridge { vlan: 200; via: gw1 }"
             - name: NSM_CIDR_PREFIX
               value: "172.10.0.0/24"
             - name: NSM_IPV6_PREFIX

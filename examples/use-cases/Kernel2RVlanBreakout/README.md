@@ -17,7 +17,7 @@ NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicem
 NAMESPACE=${NAMESPACE:10}
 ```
 
-Create first iperf server deployment:
+Create iperf server deployment:
 
 ```bash
 cat > first-iperf-s.yaml <<EOF
@@ -58,26 +58,10 @@ spec:
 EOF
 ```
 
-Create kustomization file:
+Deploy the application:
 
 ```bash
-cat > kustomization.yaml <<EOF
----
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: ${NAMESPACE}
-
-resources:
-- first-iperf-s.yaml
-
-EOF
-```
-
-Deploy the iperf-NSCs:
-
-```bash
-kubectl apply -k .
+kubectl apply -n ${NAMESPACE} -f ./first-iperf-s.yaml
 ```
 
 Wait for applications ready:
@@ -90,19 +74,6 @@ Get the iperf-NSC pods:
 
 ```bash
 NSCS=($(kubectl get pods -l app=iperf1-s -n ${NAMESPACE} --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'))
-```
-
-Start an iperf server in NSC:
-
-```bash
-IS_FIRST=$(kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
-if [ -n "$IS_FIRST" ]; then
-  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
-else
-  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.1 -B 172.10.0.2
-fi
 ```
 
 Create a docker image for test external connections:
@@ -131,30 +102,87 @@ docker exec rvm-tester ip addr add 172.10.0.254/24 dev eth0.100
 docker exec rvm-tester ethtool -K eth0 tx off
 ```
 
-Start the client from tester container:
-
-```bash
-docker exec rvm-tester ping -c 1 172.10.0.1
-```
-
 Start iperf client on tester:
 
-```bash
-IS_FIRST=$(kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- ip a s nsm-1 | grep 172.10.0.1)
-if [ -n "$IS_FIRST" ]; then
-  kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-else
-  kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B 172.10.0.1 -1
-fi
-docker exec rvm-tester iperf3 -i0 t 5 -c 172.10.0.1
-```
+1. TCP
+
+    ```bash
+    status=0
+    for nsc in "${NSCS[@]}"
+    do 
+      IP_ADDRESS=$(kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+      kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B ${IP_ADDRESS} -1
+      docker exec rvm-tester iperf3 -i0 t 5 -c ${IP_ADDRESS}
+      if test $? -eq 1 
+      then
+        status=1
+      fi
+    done
+    if test ${status} -eq 1
+    then
+      false
+    fi
+    ```
+
+2. UDP
+
+    ```bash
+    status=0
+    for nsc in "${NSCS[@]}"
+    do
+      IP_ADDRESS=$(kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+      kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B ${IP_ADDRESS} -1
+      docker exec rvm-tester iperf3 -i0 t 5 -u -c ${IP_ADDRESS}
+      if test $? -eq 1 
+      then
+        status=1
+      fi
+    done
+    if test ${status} -eq 1
+    then
+      false
+    fi
+    ```
 
 Start iperf server on tester:
 
-```bash
-docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
-kubectl exec ${NSCS[0]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
-```
+1. TCP
+
+    ```bash
+    status=0
+    for nsc in "${NSCS[@]}"
+    do
+      docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
+      kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
+      if test $? -eq 1 
+      then
+        status=1
+      fi
+    done
+    if test ${status} -eq 1
+    then
+      false
+    fi
+    ```
+
+2. UDP
+
+    ```bash
+    status=0
+    for nsc in "${NSCS[@]}"
+    do
+      docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
+      kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -u -c 172.10.0.254
+      if test $? -eq 1 
+      then
+        status=1
+      fi
+    done
+    if test ${status} -eq 1
+    then
+      false
+    fi
+    ```
 
 ## Cleanup
 
