@@ -20,7 +20,9 @@ One component:
  - [Remote NSMgr restart ip](./remote-nsmgr-restart-ip)
  - [Remote Forwarder death ip](./remote-forwarder-death-ip)
  - [Remote NSE death ip](./remote-nse-death-ip)
-
+ - [Registry + Local Endpoint](./registry-local-endpoint)
+ - [Registry + Remote Forwarder](./registry-remote-forwarder)
+ 
  Two components:
  - [Local NSMgr + Local Endpoint memif](./local-nsmgr-local-nse-memif)
  - [Local NSMgr + Local Forwarder memif](./local-nsmgr-local-forwarder-memif)
@@ -31,3 +33,4 @@ One component:
 
  NSM-system:
  - [NSM system restart - local](./local-nsm-system-restart)
+ - [NSM system restart - remote memif ip](./remote-nsm-system-restart-memif-ip)

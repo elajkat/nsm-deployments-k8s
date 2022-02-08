@@ -36,13 +36,15 @@ kubectl create ns nsm-system
 
 Apply NSM resources for basic tests:
 ```bash
-kubectl apply -k https://github.com/networkservicemesh/deployments-k8s/examples/sriov?ref=5e46f91a369e0d603799e151a70e338ee5e42062
+kubectl apply -k https://github.com/networkservicemesh/deployments-k8s/examples/sriov?ref=da0228654084085b3659ed6b519f66f44b6796ce
 ```
 
 ## Cleanup
 
-To free resources follow the next command:
+To free resources follow the next commands:
+
 ```bash
-kubectl delete mutatingwebhookconfiguration --all
+WH=$(kubectl get pods -l app=admission-webhook-k8s -n nsm-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+kubectl delete mutatingwebhookconfiguration ${WH}
 kubectl delete ns nsm-system
 ```

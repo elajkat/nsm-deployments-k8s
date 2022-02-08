@@ -5,7 +5,7 @@ This example demonstrates how to setup Open Telemetry Collector with Jaeger and 
 ## Run
 Apply Jaeger, Prometheus and OpenTelemetry Collector:
 ```bash
-kubectl apply -k .
+kubectl apply -k https://github.com/networkservicemesh/deployments-k8s/examples/observability/jaeger-and-prometheus?ref=da0228654084085b3659ed6b519f66f44b6796ce
 ```
 
 Wait for OpenTelemetry Collector POD status ready:
@@ -20,7 +20,7 @@ kubectl create ns nsm-system
 
 Apply NSM resources for basic tests:
 ```bash
-kubectl apply -k nsm-system
+kubectl apply -k https://github.com/networkservicemesh/deployments-k8s/examples/observability/jaeger-and-prometheus/nsm-system?ref=da0228654084085b3659ed6b519f66f44b6796ce
 ```
 
 Wait for admission-webhook-k8s:
@@ -31,7 +31,7 @@ kubectl wait --for=condition=ready --timeout=1m pod ${WH} -n nsm-system
 
 Create test namespace:
 ```bash
-NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/5e46f91a369e0d603799e151a70e338ee5e42062/examples/use-cases/namespace.yaml)[0])
+NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/da0228654084085b3659ed6b519f66f44b6796ce/examples/use-cases/namespace.yaml)[0])
 NAMESPACE=${NAMESPACE:10}
 ```
 
@@ -57,7 +57,7 @@ namespace: ${NAMESPACE}
 resources: 
 - client.yaml
 bases:
-- https://github.com/networkservicemesh/deployments-k8s/apps/nse-kernel?ref=5e46f91a369e0d603799e151a70e338ee5e42062
+- https://github.com/networkservicemesh/deployments-k8s/apps/nse-kernel?ref=da0228654084085b3659ed6b519f66f44b6796ce
 
 patchesStrategicMerge:
 - patch-nse.yaml
@@ -142,10 +142,10 @@ Ping from NSE to NSC:
 kubectl exec ${NSE} -n ${NAMESPACE} -- ping -c 4 172.16.1.101
 ```
 
-Select manager:
+Select forwarder:
 ```bash
-NSMGR=$(kubectl get pods -l app=nsmgr -n nsm-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
-NSMGR=${NSMGR:0:11}
+NODES=($(kubectl get nodes -o go-template='{{range .items}}{{ if not .spec.taints  }}{{index .metadata.labels "kubernetes.io/hostname"}} {{end}}{{end}}'))
+FORWARDER=$(kubectl get pods -l app=forwarder-vpp --field-selector spec.nodeName==${NODES[0]} -n nsm-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
 ```
 
 Expose ports to access Jaeger and Prometheus UI:
@@ -156,16 +156,21 @@ kubectl port-forward service/prometheus -n observability 9090:9090&
 
 Retrieve traces from Jaeger:
 ```bash
-result=$(curl -X GET localhost:16686/api/traces?service=${NSMGR}&lookback=5m&limit=1)
+result=$(curl -X GET localhost:16686/api/traces?service=${FORWARDER}&lookback=5m&limit=1)
 echo ${result}
-echo ${result} | grep -q "nsmgr"
+echo ${result} | grep -q "forwarder"
+```
+
+Replace '-' with '_' in forwarder pod name (Forwarder metric names contain only "_")
+```bash
+FORWARDER=${FORWARDER//-/_}
 ```
 
 Retrieve metrics from Prometheus:
 ```bash
-result=$(curl -X GET localhost:9090/api/v1/query?query=up)
+result=$(curl -X GET localhost:9090/api/v1/query?query="${FORWARDER}_server_tx_bytes_sum")
 echo ${result}
-echo ${result} | grep -q "up"
+echo ${result} | grep -q "forwarder"
 ```
 
 ## Cleanup
@@ -177,11 +182,13 @@ kubectl delete ns ${NAMESPACE}
 ```
 
 ```bash
-kubectl delete mutatingwebhookconfiguration --all
+WH=$(kubectl get pods -l app=admission-webhook-k8s -n nsm-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+kubectl delete mutatingwebhookconfiguration ${WH}
 kubectl delete ns nsm-system
 ```
 
 ```bash
+kubectl describe ns observability
 kubectl delete ns observability
 pkill -f "port-forward"
 ```
