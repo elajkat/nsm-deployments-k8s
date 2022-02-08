@@ -13,7 +13,7 @@ Make sure that you have completed steps from [remotevlan](../../remotevlan) setu
 Create test namespace:
 
 ```bash
-NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/7dde61822c0256ccb4aef4e4c33d4fb9341a0296/examples/use-cases/namespace.yaml)[0])
+NAMESPACE=($(kubectl create -f https://raw.githubusercontent.com/networkservicemesh/deployments-k8s/da0228654084085b3659ed6b519f66f44b6796ce/examples/use-cases/namespace.yaml)[0])
 NAMESPACE=${NAMESPACE:10}
 ```
 
@@ -83,7 +83,7 @@ cat > Dockerfile <<EOF
 FROM networkstatic/iperf3
 
 RUN apt-get update \
-    && apt-get install -y ethtool tcpdump \
+    && apt-get install -y ethtool iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT [ "tail", "-f", "/dev/null" ]
@@ -109,11 +109,11 @@ Start iperf client on tester:
     ```bash
     status=0
     for nsc in "${NSCS[@]}"
-    do 
-      IP_ADDRESS=$(kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+    do
+      IP_ADDRESS=$(kubectl exec ${nsc} -c cmd-nsc -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
       kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B ${IP_ADDRESS} -1
-      docker exec rvm-tester iperf3 -i0 t 5 -c ${IP_ADDRESS}
-      if test $? -eq 1 
+      docker exec rvm-tester iperf3 -i0 -t 125 -c ${IP_ADDRESS}
+      if test $? -ne 0
       then
         status=1
       fi
@@ -130,10 +130,10 @@ Start iperf client on tester:
     status=0
     for nsc in "${NSCS[@]}"
     do
-      IP_ADDRESS=$(kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+      IP_ADDRESS=$(kubectl exec ${nsc} -c cmd-nsc -n ${NAMESPACE} -- ip -4 addr show nsm-1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
       kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -sD -B ${IP_ADDRESS} -1
-      docker exec rvm-tester iperf3 -i0 t 5 -u -c ${IP_ADDRESS}
-      if test $? -eq 1 
+      docker exec rvm-tester iperf3 -i0 -t 5 -u -c ${IP_ADDRESS}
+      if test $? -ne 0
       then
         status=1
       fi
@@ -153,8 +153,8 @@ Start iperf server on tester:
     for nsc in "${NSCS[@]}"
     do
       docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
-      kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -c 172.10.0.254
-      if test $? -eq 1 
+      kubectl exec ${nsc} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 -t 5 -c 172.10.0.254
+      if test $? -ne 0
       then
         status=1
       fi
@@ -172,8 +172,8 @@ Start iperf server on tester:
     for nsc in "${NSCS[@]}"
     do
       docker exec rvm-tester iperf3 -sD -B 172.10.0.254 -1
-      kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 t 5 -u -c 172.10.0.254
-      if test $? -eq 1 
+      kubectl exec ${NSCS[1]} -c iperf-server -n ${NAMESPACE} -- iperf3 -i0 -t 5 -u -c 172.10.0.254
+      if test $? -ne 0
       then
         status=1
       fi
