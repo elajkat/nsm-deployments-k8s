@@ -23,6 +23,15 @@ spec:
       containers:
         - name: spire-server
           image: gcr.io/spiffe-io/spire-server:1.2.3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2001
+            runAsGroup: 2001
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - "DAC_OVERRIDE"
           args:
             - -config
             - /run/spire/config/server.conf
@@ -59,6 +68,15 @@ spec:
           args:
             - -config
             - /run/spire/config/k8s-workload-registrar.conf
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2001
+            runAsGroup: 2001
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - "DAC_OVERRIDE"
           env:
             - name: MY_POD_NAMESPACE
               valueFrom:

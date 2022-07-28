@@ -32,6 +32,15 @@ spec:
         - name: spire-agent
           image: gcr.io/spiffe-io/spire-agent:1.2.3
           args: ["-config", "/run/spire/config/agent.conf"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2001
+            runAsGroup: 2001
+            capabilities:
+              drop:
+                - ALL
+              add: 
+                - "DAC_OVERRIDE"
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
