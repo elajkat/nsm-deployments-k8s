@@ -25,6 +25,8 @@ Wait for applications ready:
 ```bash
 kubectl wait --for=condition=ready --timeout=5m pod -l app=nse-kernel -n ns-webhook-smartvf
 ```
+
+4. Create postgres client deployment, set `nodeName` to the first node and use the interface pool for SmartVF in `sriovToken` annotation label:
 ```bash
 kubectl wait --for=condition=ready --timeout=1m pod postgres-cl -n ns-webhook-smartvf
 ```

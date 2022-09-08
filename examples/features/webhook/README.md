@@ -19,6 +19,8 @@ Wait for applications ready:
 ```bash
 kubectl wait --for=condition=ready --timeout=5m pod -l app=nse-kernel -n ns-webhook
 ```
+
+4. Create client deployment and set `nodeName` to the first node:
 ```bash
 kubectl wait --for=condition=ready --timeout=1m pod -l app=nettools -n ns-webhook
 ```

@@ -105,7 +105,9 @@ done
 
 ## Cleanup
 
+
 To cleanup the example just follow the next command:
+
 ```bash
 kubectl delete ns ns-vl3-dns
 ```

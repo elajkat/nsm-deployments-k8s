@@ -18,6 +18,8 @@ Wait for applications ready:
 ```bash
 kubectl wait --for=condition=ready --timeout=5m pod dnsutils -n ns-dns
 ```
+
+3. Create dnsutils deployment and set `nodeName` to the first node:
 ```bash
 kubectl wait --for=condition=ready --timeout=5m pod -l app=nse-kernel -n ns-dns
 ```
@@ -26,6 +28,8 @@ Ping from dnsutils to NSE by domain name:
 ```bash
 kubectl exec pods/dnsutils -c dnsutils -n ns-dns -- nslookup -norec -nodef my.coredns.service
 ```
+
+5. Create kustomization file:
 ```bash
 kubectl exec pods/dnsutils -c dnsutils -n ns-dns -- ping -c 4 my.coredns.service
 ```
