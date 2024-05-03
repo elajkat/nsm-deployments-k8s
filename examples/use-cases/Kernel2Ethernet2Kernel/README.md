@@ -5,6 +5,11 @@ This example shows that NSC and NSE on the different nodes could find and work w
 NSC and NSE are using the `kernel` mechanism to connect to its local forwarder.
 Forwarders are using the `Ethernet` payload to connect with each other.
 
+Diagram:
+
+![NSM kernel2Ethernet2kernel Diagram](./Kernel2Ethernet2Kernel.png "NSM Kernel2Ethernet2Kernel Scheme")
+
+
 ## Requires
 
 Make sure that you have completed steps from [basic](../../basic) or [memory](../../memory) setup.
